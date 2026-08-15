@@ -1,0 +1,15 @@
+{
+  "session_id": "fixture-session-0002",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440001",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_use_id": "toolu_fixture_editorconfig",
+  "tool_input": {
+    "file_path": "/repo/.editorconfig",
+    "old_string": "dotnet_diagnostic.CA2007.severity = error",
+    "new_string": "dotnet_diagnostic.CA2007.severity = none"
+  },
+  "effort": { "level": "medium" }
+}
