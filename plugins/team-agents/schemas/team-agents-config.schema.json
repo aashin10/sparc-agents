@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparc.internal/schemas/team-agents/config.schema.json",
+  "title": ".team-agents.json",
+  "description": "Repo-level configuration for the team-agents plugin. Placed at a consumer repo's root. This file exists because pluginConfigs values are read only from user settings, --settings, and managed settings — project settings are deliberately ignored, since a cloned repository could otherwise inject values into hook commands and MCP configs. Precedence: this file > CLAUDE_PLUGIN_OPTION_* > profile default.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "profile": {
+      "type": "string",
+      "enum": ["minimal", "standard", "strict"],
+      "default": "standard",
+      "description": "Guardrail profile. Invalid values fall back to standard rather than failing the session."
+    },
+    "domains": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["backend"],
+      "description": "Active domain packs."
+    },
+    "track_usage": {
+      "type": "boolean",
+      "default": true,
+      "description": "Write per-session token and cost rollups to the plugin data directory."
+    },
+    "context_budget": {
+      "type": "number",
+      "minimum": 0,
+      "default": 2500,
+      "description": "Always-on token ceiling enforced in CI."
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" },
+      "description": "Per-gate overrides keyed by hook id, e.g. { \"pre:commit-gate\": false }. Use sparingly — a disabled gate is an undocumented exception."
+    }
+  }
+}

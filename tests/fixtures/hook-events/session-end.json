@@ -1,0 +1,7 @@
+{
+  "session_id": "fixture-session-0001",
+  "transcript_path": "/repo/.transcript/fixture.jsonl",
+  "cwd": "/repo",
+  "hook_event_name": "SessionEnd",
+  "reason": "clear"
+}

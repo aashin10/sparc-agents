@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+'use strict';
+// arc-usage — token and cost rollup from the local telemetry store.
+// Phase 2. See docs/BUILD-PLAN.md for the target output shape.
+process.stderr.write(
+  'arc-usage: not implemented yet (Phase 2 — instrumentation).\n' +
+  'Until then: /cost for session cost, /usage for plan headroom.\n'
+);
+process.exit(1);

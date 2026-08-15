@@ -1,0 +1,5 @@
+Rule templates, NOT loaded from the plugin. Plugins contribute context through
+skills, agents, and hooks; a CLAUDE.md at the plugin root is not read as project
+context. A setup command copies these into a consumer repo's .claude/rules/.
+Use paths: frontmatter so they load only when Claude touches matching files.
+Empty until Phase 3.

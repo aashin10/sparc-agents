@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "team-agents",
+  "displayName": "SPARC Team Agents",
+  "description": "Shared agent layer for the SPARC team. Ships the backend pack: .NET/C#, EF Core, SQL Server, Azure Service Bus, MassTransit.",
+  "author": { "name": "SPARC" },
+  "license": "MIT",
+  "keywords": ["agents", "skills", "hooks", "backend", "dotnet", "guardrails"],
+
+  "skills": ["./domains/backend/skills/"],
+  "agents": ["./agents/", "./domains/backend/agents/"],
+  "hooks": "./hooks/hooks.json",
+
+  "userConfig": {
+    "profile": {
+      "type": "string",
+      "title": "Guardrail profile",
+      "description": "minimal | standard | strict. Invalid values fall back to standard.",
+      "default": "standard"
+    },
+    "domains": {
+      "type": "string",
+      "title": "Active domain packs",
+      "description": "Which domain packs to activate.",
+      "multiple": true,
+      "default": ["backend"]
+    },
+    "track_usage": {
+      "type": "boolean",
+      "title": "Local token tracking",
+      "description": "Write per-session token and cost rollups to the plugin data directory.",
+      "default": true
+    },
+    "context_budget": {
+      "type": "number",
+      "title": "Always-on token ceiling",
+      "description": "Fail CI when the plugin's always-on context cost exceeds this.",
+      "default": 2500
+    }
+  }
+}

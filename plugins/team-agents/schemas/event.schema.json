@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparc.internal/schemas/team-agents/event.schema.json",
+  "title": "team-agents event",
+  "description": "One line of ${CLAUDE_PLUGIN_DATA}/events/YYYY-MM-DD.jsonl. Bump v on any field change — event schemas rot silently.",
+  "type": "object",
+  "required": ["v", "ts", "event"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "type": "integer", "const": 1, "description": "Schema version." },
+    "ts": { "type": "string", "format": "date-time", "description": "ISO 8601, UTC." },
+    "session_id": { "type": "string" },
+    "turn": { "type": "integer", "minimum": 0 },
+    "event": {
+      "type": "string",
+      "description": "Hook event name in snake_case, or a plugin-defined event.",
+      "minLength": 1
+    },
+    "tool": { "type": "string" },
+    "agent": { "type": "string" },
+    "files": { "type": "array", "items": { "type": "string" } },
+    "decision": { "type": "string", "enum": ["allow", "block", "warn"] },
+    "rule_id": { "type": "string", "description": "Stable hook id, e.g. pre:config-protection." },
+    "duration_ms": { "type": "number", "minimum": 0 },
+    "cli_version": { "type": "string", "description": "Recorded on every row so a breaking Claude Code release is visible rather than silent." },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

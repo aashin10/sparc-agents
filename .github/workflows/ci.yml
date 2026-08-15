@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The plugin ships zero runtime dependencies and the CI suite has none
+      # either, so there is deliberately no install step here. If one ever
+      # becomes necessary, `npm ci` at the repo root is the place for it.
+
+      - name: Validate manifests
+        run: node scripts/ci/validate-manifest.js
+
+      - name: Validate hooks
+        run: node scripts/ci/validate-hooks.js
+
+      - name: Validate agents
+        run: node scripts/ci/validate-agents.js
+
+      - name: Validate skills
+        run: node scripts/ci/validate-skills.js
+
+      - name: Scan for personal paths and secrets
+        run: node scripts/ci/validate-no-personal-paths.js
+
+      - name: Smoke-test hooks against fixtures
+        run: node scripts/ci/smoke-hooks.js
+
+      # `claude plugin validate --strict` and `check-token-budget.js` both need
+      # the Claude Code CLI. They are the two checks that catch schema drift and
+      # always-on context creep, so wire them up as soon as the CLI is available
+      # on the runner. check-token-budget.js exits 0 when the CLI is missing, so
+      # it is safe to run unconditionally in the meantime.
+      - name: Always-on token budget
+        run: node scripts/ci/check-token-budget.js

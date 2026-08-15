@@ -1,0 +1,3 @@
+Core skills live here — domain-neutral only.
+Core/domain test: would a frontend or data engineer also want this?
+Empty until Phase 3. Loaded by the default scan, so it is NOT listed in plugin.json.

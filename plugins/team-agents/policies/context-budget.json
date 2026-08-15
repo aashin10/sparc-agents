@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "ceiling_tokens": 2500,
+  "warn_at_tokens": 2000,
+  "rationale": "Always-on cost is what stops team-agents becoming a 284-skill catalogue. Every skill description is paid for on every session, whether or not the skill fires. When a change pushes the total over, the fix is a shorter description or disable-model-invocation: true — not raising the ceiling.",
+  "measured_by": "claude plugin details team-agents",
+  "enforced_by": "scripts/ci/check-token-budget.js",
+  "counts_toward_budget": [
+    "skill frontmatter name + description, for every skill without disable-model-invocation",
+    "agent frontmatter name + description",
+    "rules without paths: frontmatter",
+    "output styles"
+  ],
+  "excluded": [
+    "skill bodies (charged on invoke)",
+    "references/ and scripts/ inside a skill (read on demand)",
+    "rules with paths: frontmatter (charged when a matching file is read)",
+    "hooks (code, not context)"
+  ]
+}

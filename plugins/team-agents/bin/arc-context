@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+'use strict';
+// arc-context — prints the always-on context ledger against policies/context-budget.json.
+// Phase 2. See docs/BUILD-PLAN.md.
+process.stderr.write(
+  'arc-context: not implemented yet (Phase 2 — instrumentation).\n' +
+  'Until then: /context all in session, and `claude plugin details team-agents`\n' +
+  'for this plugin\'s always-on vs on-invoke token cost.\n'
+);
+process.exit(1);

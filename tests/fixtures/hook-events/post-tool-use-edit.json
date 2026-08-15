@@ -1,0 +1,16 @@
+{
+  "session_id": "fixture-session-0001",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_use_id": "toolu_fixture_edit",
+  "tool_input": {
+    "file_path": "/repo/src/Api/Controllers/PlanController.cs",
+    "old_string": "a",
+    "new_string": "b"
+  },
+  "tool_result": "The file /repo/src/Api/Controllers/PlanController.cs has been updated.",
+  "effort": { "level": "medium" }
+}

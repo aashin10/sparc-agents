@@ -1,0 +1,3 @@
+Core agents live here. Empty until Phase 4.
+Listed explicitly in plugin.json because `agents` REPLACES the default scan
+rather than adding to it — dropping this path would unload it.

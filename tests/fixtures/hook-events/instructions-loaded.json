@@ -1,0 +1,10 @@
+{
+  "session_id": "fixture-session-0001",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "InstructionsLoaded",
+  "instructions": [
+    { "path": "/repo/CLAUDE.md", "trigger": "startup", "bytes": 4411 },
+    { "path": "/repo/.claude/rules/csharp/ef-core.md", "trigger": "paths", "bytes": 1820 }
+  ]
+}

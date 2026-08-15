@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "auto_memory": {
+    "scope": "personal",
+    "location": "default",
+    "rationale": "Locked decision. Pointing autoMemoryDirectory at a checked-in folder means Claude commits unreviewed notes to the repo. Shared knowledge belongs in version-controlled CLAUDE.md and .claude/rules/."
+  },
+  "line_budgets": {
+    "CLAUDE.md": 200,
+    "MEMORY.md": 200,
+    ".claude/rules/*.md": 120
+  },
+  "enforced_by": "scripts/hooks/pre-memory-bloat.js (Phase 5)",
+  "notes": [
+    "Only the first 200 lines or 25 KB of MEMORY.md is loaded at startup. Past that the content is paid for on disk but never read.",
+    "Rules without paths: frontmatter load unconditionally at launch and cost always-on context. Rules with paths: are cheap but are lost at compaction until a matching file is read again."
+  ]
+}

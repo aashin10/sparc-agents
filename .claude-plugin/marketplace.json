@@ -1,0 +1,15 @@
+{
+  "name": "sparc-agents",
+  "owner": { "name": "SPARC" },
+  "metadata": {
+    "description": "SPARC internal agent marketplace"
+  },
+  "plugins": [
+    {
+      "name": "team-agents",
+      "source": "./plugins/team-agents",
+      "description": "Shared agent layer. Backend pack ships first.",
+      "category": "workflow"
+    }
+  ]
+}

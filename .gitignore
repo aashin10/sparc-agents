@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# plugin runtime state — never committed; lives in ${CLAUDE_PLUGIN_DATA}
+*.local.json
+.team-agents.local.json
+
+# telemetry / event log spill, if a dev points CLAUDE_PLUGIN_DATA at the repo
+events/
+telemetry/
+changesets/
+
+# editor / OS
+.DS_Store
+.idea/
+*.swp
+
+# logs and scratch
+*.log
+.tmp/
+tmp/
+
+# never commit these — validate-no-personal-paths.js also greps for them
+.env
+.env.*
+!.env.example

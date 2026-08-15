@@ -1,0 +1,10 @@
+{
+  "name": "team-agents",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hook runtime for the team-agents Claude Code plugin. Zero runtime dependencies by design.",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": { "node": ">=20" },
+  "dependencies": {}
+}

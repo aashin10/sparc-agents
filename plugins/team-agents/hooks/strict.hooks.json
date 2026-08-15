@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "id": "session:banner",
+        "description": "Strict profile. Currently identical to the standard profile; the blocking build, test, migration, and commit gates land in Phase 5.",
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.js"],
+            "timeout": 5,
+            "statusMessage": "team-agents: session start (strict)"
+          }
+        ]
+      }
+    ]
+  }
+}

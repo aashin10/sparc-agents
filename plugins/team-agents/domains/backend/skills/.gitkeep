@@ -1,0 +1,3 @@
+Backend-domain skills. Names carry the domain: backend-<topic>.
+Empty until Phase 4. Listed in plugin.json under `skills`, which ADDS to the
+default scan.

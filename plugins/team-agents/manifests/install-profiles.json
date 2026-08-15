@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "defaultProfile": "standard",
+  "profiles": {
+    "minimal": {
+      "description": "Skills, agents, and rules only. No hooks. For skeptics and for CI.",
+      "hooks": null,
+      "gates": []
+    },
+    "standard": {
+      "description": "Format, config protection, secret scan, advisory build. The default.",
+      "hooks": "./hooks/hooks.json",
+      "gates": ["session:banner"]
+    },
+    "strict": {
+      "description": "Everything in standard plus blocking build and test gates, migration guard, and commit gate.",
+      "hooks": "./hooks/strict.hooks.json",
+      "gates": ["session:banner"]
+    }
+  },
+  "options": {
+    "profile": "standard",
+    "domains": ["backend"],
+    "track_usage": true,
+    "context_budget": 2500
+  }
+}
