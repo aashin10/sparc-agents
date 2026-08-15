@@ -1,0 +1,15 @@
+{
+  "session_id": "fixture-session-0002",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440001",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_use_id": "toolu_fixture_generated",
+  "tool_input": {
+    "file_path": "/repo/src/Api/obj/Debug/net10.0/Api.AssemblyInfo.cs",
+    "content": "// auto-generated"
+  },
+  "tool_result": "written",
+  "effort": { "level": "medium" }
+}

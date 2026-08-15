@@ -15,6 +15,52 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "id": "pre:config-protection",
+        "description": "Blocks edits to .editorconfig, Directory.Build.props, rulesets, and .globalconfig so the agent fixes code instead of weakening the rules.",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-config-protection.js"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "id": "post:edit-accumulate",
+        "description": "Records touched files into the turn's changeset. Never runs tooling — the expensive work happens once, on Stop.",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-edit-accumulate.js"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "id": "stop:quality-gate",
+        "description": "Runs format and build against only the projects touched this turn; adds tests under the strict profile.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop-quality-gate.js"],
+            "timeout": 30,
+            "statusMessage": "team-agents: quality gate"
+          }
+        ]
+      }
     ]
   }
 }
