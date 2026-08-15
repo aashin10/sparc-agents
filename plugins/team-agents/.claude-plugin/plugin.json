@@ -8,8 +8,6 @@
   "keywords": ["agents", "skills", "hooks", "backend", "dotnet", "guardrails"],
 
   "skills": ["./domains/backend/skills/"],
-  "agents": ["./agents/", "./domains/backend/agents/"],
-  "hooks": "./hooks/hooks.json",
 
   "userConfig": {
     "profile": {
