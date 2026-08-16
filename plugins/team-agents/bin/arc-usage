@@ -90,9 +90,12 @@ const pricing = loadPricing();
 let rows = [];
 let scope = '';
 
+let toolSourceFile = null;
+
 if (has('--transcript')) {
   const f = val('--transcript');
   rows = transcript.parseFile(f).rows;
+  toolSourceFile = f;
   scope = `transcript ${path.basename(f)}`;
 } else if (has('--session')) {
   const files = transcript.listTranscripts(transcript.projectKeyFor(process.cwd()));
@@ -101,6 +104,7 @@ if (has('--transcript')) {
     process.exit(1);
   }
   rows = transcript.parseFile(files[0]).rows;
+  toolSourceFile = files[0];
   scope = `session ${path.basename(files[0], '.jsonl').slice(0, 8)}`;
 } else {
   const since = val('--since', '7d');
@@ -156,6 +160,52 @@ for (const [model, acc] of Object.entries(s.byModel).sort((a, b) => transcript.t
   const t = transcript.totalTokens(acc);
   if (!t) continue;
   console.log(`  ${model.padEnd(14)} ${fmtTok(t).padStart(8)}  ${pct(t, total).padStart(6)}  ${fmtUsd(acc.cost || 0).padStart(8)}`);
+}
+
+// --- per-tool and per-MCP context accounting ------------------------------
+// Only available from a transcript: the telemetry store holds usage rows, and
+// usage is per-request — it carries no tool attribution to roll up.
+if (toolSourceFile) {
+  const { tools, servers, requests } = transcript.parseTools(toolSourceFile);
+  const list = Object.values(tools).filter((t) => t.calls > 0);
+
+  if (list.length) {
+    console.log('');
+    console.log(`By tool — context pushed into the window   (${requests} requests)`);
+    console.log(`  ${'calls'.padStart(5)}  ${'result'.padStart(8)}  ${'amplified'.padStart(10)}  tool`);
+    for (const t of list.sort((a, b) => b.amplified_tokens - a.amplified_tokens).slice(0, 12)) {
+      const err = t.errors ? `  (${t.errors} err)` : '';
+      console.log(
+        `  ${String(t.calls).padStart(5)}  ${fmtTok(t.result_tokens).padStart(8)}  ` +
+        `${fmtTok(t.amplified_tokens).padStart(10)}  ${t.name}${err}`
+      );
+    }
+  }
+
+  const mcp = Object.values(servers);
+  console.log('');
+  if (mcp.length) {
+    console.log('By MCP server');
+    console.log(`  ${'calls'.padStart(5)}  ${'result'.padStart(8)}  ${'amplified'.padStart(10)}  server (tools used)`);
+    for (const s of mcp.sort((a, b) => b.amplified_tokens - a.amplified_tokens)) {
+      console.log(
+        `  ${String(s.calls).padStart(5)}  ${fmtTok(s.result_tokens).padStart(8)}  ` +
+        `${fmtTok(s.amplified_tokens).padStart(10)}  ${s.server} (${[...new Set(s.tools)].join(', ')})`
+      );
+    }
+  } else {
+    console.log('By MCP server    no MCP tools were called in this session.');
+  }
+
+  console.log('');
+  console.log('  "result"    = tokens that tool put into the context window (est., ~4 chars/token)');
+  console.log('  "amplified" = that result re-read on every later request in the session. A big');
+  console.log('                result early in a long session is paid for many times over.');
+  console.log('');
+  console.log('  These are CONTEXT-FLOW figures, not billed totals. Claude Code records usage');
+  console.log('  per request only — there is no per-tool or per-server token field to read, so');
+  console.log('  no tool can report exact billed tokens per MCP server. Standing cost (an MCP');
+  console.log('  server\'s tool schemas sitting in every request) is not visible here either.');
 }
 
 console.log('');

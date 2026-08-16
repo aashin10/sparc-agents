@@ -258,7 +258,118 @@ function summarize(rows, pricing) {
   return out;
 }
 
+
+/**
+ * parseTools — per-tool and per-MCP-server context accounting.
+ *
+ * ## What this can and cannot know
+ *
+ * `message.usage` is per-REQUEST. There is no per-tool or per-server token field
+ * anywhere in the transcript — verified against a real session: the only
+ * tool-adjacent key is `server_tool_use`, which counts Anthropic server-side
+ * web_search/web_fetch requests, not MCP. So exact billed tokens per MCP server
+ * cannot be derived, and any tool claiming otherwise is guessing.
+ *
+ * What IS derivable, and is what this returns:
+ *   - call counts per tool, and per MCP server via the `mcp__<server>__<tool>`
+ *     naming convention
+ *   - the size of each tool RESULT, i.e. how much context that tool pushed into
+ *     the window (matched tool_use_id -> tool_result)
+ *
+ * ## Why "amplified" is the number that matters
+ *
+ * A tool result is not paid for once. It lands in the conversation prefix and is
+ * then re-read on every subsequent request for the rest of the session — at
+ * cache-read rates, but re-read all the same. A 40k-token result returned early
+ * in a long session is charged far more than 40k tokens.
+ *
+ * So each result is weighted by the number of requests that followed it. That is
+ * an estimate (compaction can evict, a cache miss re-bills at full input rate),
+ * but it is directionally right and it is the number that changes decisions
+ * about which tools and which MCP servers are worth keeping connected.
+ */
+function parseTools(file) {
+  const tools = {};
+  const bump = (name) => (tools[name] = tools[name] || {
+    name, calls: 0, results: 0, result_bytes: 0, errors: 0, amplified_tokens: 0,
+  });
+
+  let text = '';
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return { tools: {}, servers: {}, requests: 0 }; }
+
+  const entries = [];
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    try { entries.push(JSON.parse(line)); } catch { /* torn line */ }
+  }
+
+  // Request ordinal per entry, so a result can be weighted by what follows it.
+  const seenReq = new Set();
+  let ordinal = 0;
+  const ordinalAt = [];
+  for (const e of entries) {
+    if (e && e.type === 'assistant' && e.requestId && !seenReq.has(e.requestId)) {
+      seenReq.add(e.requestId);
+      ordinal++;
+    }
+    ordinalAt.push(ordinal);
+  }
+  const totalRequests = ordinal;
+
+  const idToName = new Map();
+  entries.forEach((e, i) => {
+    if (!e || typeof e !== 'object') return;
+    const content = e.message && Array.isArray(e.message.content) ? e.message.content : [];
+
+    if (e.type === 'assistant') {
+      for (const b of content) {
+        if (b && b.type === 'tool_use' && b.name) {
+          bump(b.name).calls++;
+          if (b.id) idToName.set(b.id, b.name);
+        }
+      }
+      return;
+    }
+
+    if (e.type !== 'user') return;
+    for (const b of content) {
+      if (!b || b.type !== 'tool_result') continue;
+      const name = idToName.get(b.tool_use_id);
+      if (!name) continue;
+      const t = bump(name);
+      const payload = typeof b.content === 'string' ? b.content : JSON.stringify(b.content || '');
+      const bytes = Buffer.byteLength(payload);
+      t.results++;
+      t.result_bytes += bytes;
+      if (b.is_error) t.errors++;
+      // ~4 chars/token, weighted by the requests that still had to carry it.
+      const remaining = Math.max(0, totalRequests - (ordinalAt[i] || 0));
+      t.amplified_tokens += Math.round(bytes / 4) * remaining;
+    }
+  });
+
+  for (const t of Object.values(tools)) t.result_tokens = Math.round(t.result_bytes / 4);
+
+  // Group MCP tools by server: mcp__<server>__<tool>
+  const servers = {};
+  for (const t of Object.values(tools)) {
+    const m = /^mcp__([^_]+(?:_[^_]+)*?)__(.+)$/.exec(t.name);
+    if (!m) continue;
+    const server = m[1];
+    const s = servers[server] = servers[server] || {
+      server, calls: 0, result_tokens: 0, amplified_tokens: 0, errors: 0, tools: [],
+    };
+    s.calls += t.calls;
+    s.result_tokens += t.result_tokens;
+    s.amplified_tokens += t.amplified_tokens;
+    s.errors += t.errors;
+    s.tools.push(m[2]);
+  }
+
+  return { tools, servers, requests: totalRequests };
+}
+
 module.exports = {
-  parseFile, summarize, normalizeEntry, listTranscripts, transcriptsDir,
+  parseFile, parseTools, summarize, normalizeEntry, listTranscripts, transcriptsDir,
   projectKeyFor, totalTokens, costOf, ZERO, SCHEMA_VERSION,
 };
