@@ -9,6 +9,21 @@
  * building the whole solution on every turn.
  *
  * State lives under ${CLAUDE_PLUGIN_DATA}, keyed by session.
+ *
+ * ## Why append-only, not a JSON blob
+ *
+ * Claude Code runs tools in parallel, and every one of them fires its own
+ * PostToolUse hook — as a separate OS process. A read-modify-write of a single
+ * JSON file therefore races: several processes read the same state, each adds
+ * its own file, and the last writer wins. Measured with 12 concurrent edits
+ * against the previous implementation: 4 were silently lost.
+ *
+ * That is the worst possible failure for this module. A dropped path means the
+ * Stop gate never builds that project, so a broken build reports success — the
+ * gate looks like it ran and it did nothing.
+ *
+ * Appending one line per call fixes it: each writer opens with O_APPEND and does
+ * a single small write, so writers never overwrite each other's records.
  */
 
 const fs = require('fs');
@@ -21,42 +36,59 @@ function changesetDir() {
 
 function fileFor(sessionId) {
   const safe = String(sessionId || 'unknown').replace(/[^A-Za-z0-9_-]/g, '_');
-  return path.join(changesetDir(), `${safe}.json`);
+  return path.join(changesetDir(), `${safe}.jsonl`);
 }
 
+/**
+ * Fold the append log into the aggregate the gate consumes.
+ * Order of first touch is preserved; duplicates collapse.
+ */
 function read(sessionId) {
+  const state = { session_id: sessionId, started: '', files: [], tools: {} };
+  let text = '';
   try {
-    const parsed = JSON.parse(fs.readFileSync(fileFor(sessionId), 'utf8'));
-    return {
-      session_id: parsed.session_id || sessionId,
-      started: parsed.started || new Date().toISOString(),
-      files: Array.isArray(parsed.files) ? parsed.files : [],
-      tools: parsed.tools && typeof parsed.tools === 'object' ? parsed.tools : {},
-    };
+    text = fs.readFileSync(fileFor(sessionId), 'utf8');
   } catch {
-    return { session_id: sessionId, started: new Date().toISOString(), files: [], tools: {} };
+    return state;
   }
-}
 
-/** Record files touched by a tool. Deduplicates; order of first touch is kept. */
-function add(sessionId, files, toolName) {
-  try {
-    const state = read(sessionId);
-    const seen = new Set(state.files);
-    for (const f of files || []) {
+  const seen = new Set();
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    let rec;
+    try {
+      rec = JSON.parse(line);
+    } catch {
+      continue; // a torn line must not lose the rest of the log
+    }
+    if (!state.started && rec.ts) state.started = rec.ts;
+    if (rec.ts) state.updated = rec.ts;
+    if (rec.tool) state.tools[rec.tool] = (state.tools[rec.tool] || 0) + 1;
+    for (const f of Array.isArray(rec.files) ? rec.files : []) {
       if (typeof f === 'string' && f && !seen.has(f)) {
         seen.add(f);
         state.files.push(f);
       }
     }
-    if (toolName) state.tools[toolName] = (state.tools[toolName] || 0) + 1;
-    state.updated = new Date().toISOString();
-    ensureDir(changesetDir());
-    fs.writeFileSync(fileFor(sessionId), JSON.stringify(state), 'utf8');
-    return state;
-  } catch {
-    return read(sessionId);
   }
+  return state;
+}
+
+/**
+ * Record files touched by a tool. One append per call — never a read-modify-write.
+ * Best-effort: accumulation must never be the reason a tool call fails.
+ */
+function add(sessionId, files, toolName) {
+  const list = (files || []).filter((f) => typeof f === 'string' && f);
+  if (!list.length) return read(sessionId);
+  try {
+    ensureDir(changesetDir());
+    const rec = { ts: new Date().toISOString(), tool: toolName || '', files: list };
+    fs.appendFileSync(fileFor(sessionId), `${JSON.stringify(rec)}\n`, 'utf8');
+  } catch {
+    /* accumulation is best-effort */
+  }
+  return read(sessionId);
 }
 
 /** Read and clear. Call from Stop, once, after the gate has what it needs. */

@@ -206,12 +206,75 @@ just cost 300 always-on tokens forever.
 
 ---
 
+---
+
+## Phase 6 — Attribution the transcript cannot give us
+
+**Goal:** answer "what is this MCP server actually costing us?" with a number
+you can act on.
+
+### Why this is its own phase
+
+Phase 2 measures spend accurately at the session level and, since the per-tool
+extension, measures how much context each tool and MCP server pushes into the
+window. It cannot measure billed tokens per MCP server, and neither can anything
+else built only on transcripts. Verified against a real session: `message.usage`
+is per-REQUEST, and the only tool-adjacent key in it is `server_tool_use`, which
+counts Anthropic server-side web_search/web_fetch calls — not MCP. There is no
+per-tool or per-server token field to read.
+
+So an MCP server's cost splits into two parts, and only one is solved:
+
+| Part | What it is | Status |
+|---|---|---|
+| **Flow cost** | Tool results the server pushes into context, re-read on every later request | **Done** — `arc-usage` reports it per server, raw and amplified |
+| **Standing cost** | The server's tool names/schemas sitting in the request prefix on *every* request, whether or not the server is ever called | **Not solved.** Not present in the transcript at all. |
+
+Standing cost is the one that surprises people: connect eight MCP servers, call
+none of them, and every request still carries their tool surface. ARCHITECTURE
+§9.2 notes MCP tool *names* load at startup with schemas deferred, so the
+standing cost is smaller than it looks — but "smaller than it looks" is not a
+number, and a fleet-wide default should not rest on an assumption.
+
+### Tasks
+
+- [ ] `scripts/lib/mcp.js` — enumerate connected MCP servers and their tool
+      surface from the resolved config (user, project, and plugin-provided),
+      measuring names and, where loaded, schemas.
+- [ ] Standing-cost estimator: tool-surface tokens x requests per session, so
+      the always-on figure is comparable to the flow figure `arc-usage` reports.
+- [ ] `arc-context`: add connected MCP servers to the always-on ledger, since
+      today it accounts for CLAUDE.md, memory, and rules but not MCP.
+- [ ] Reconcile the estimate against ground truth from `/context` on a real
+      session; record the delta in SCHEMA-NOTES rather than trusting the model.
+- [ ] Threshold monitoring: a `Stop`-side check that warns when a session crosses
+      a configurable token or cost ceiling, so runaway spend is visible while it
+      is happening rather than at the next rollup.
+- [ ] OTel adapter behind `transcript.js` (ARCHITECTURE §8.2 Source B). Note
+      before committing: the documented attribute set carries `plugin.name`,
+      `agent.name`, and `skill.name` — **no MCP server attribute** — so OTel is
+      unlikely to close the standing-cost gap on its own. Confirm before building.
+
+### Acceptance
+
+- For a session with at least two MCP servers connected, `arc-usage` reports a
+  per-server standing cost and a per-server flow cost, and the two are labelled
+  distinctly rather than summed into one misleading number.
+- The standing-cost estimate is within a stated tolerance of `/context`, and the
+  tolerance is written down.
+- Disconnecting an unused MCP server produces a measurable drop in the reported
+  always-on figure. If it does not, the estimator is wrong and the phase is not
+  done.
+- Every figure that is an estimate says so, and anything not derivable is named
+  as not derivable rather than approximated silently.
+
 ## Explicitly deferred
 
 Do not build these during phases 0–5:
 
 - Multi-plugin split (`agent-core`, `backend-agents`, `agent-governance`)
-- MCP servers bundled in the plugin
+- MCP servers bundled in the plugin (measuring MCP token cost is Phase 6 —
+  bundling one is still out of scope)
 - LSP server configuration
 - Monitors, themes, channels
 - A second domain pack

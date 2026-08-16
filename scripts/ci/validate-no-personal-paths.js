@@ -22,6 +22,25 @@ const SCAN = [
 const SKIP_FILE = /(^|[/\\])(package-lock\.json|\.DS_Store)$/;
 const TEXT = /\.(js|mjs|cjs|json|md|sh|ya?ml|txt|ps1)$/;
 
+/**
+ * Extension matching alone misses everything in bin/ — those files are
+ * deliberately extensionless so they read as bare commands on PATH, which also
+ * makes them the most user-facing code in the plugin and the worst place for an
+ * unnoticed credential. Treat a shebang as proof of a text file.
+ */
+function isText(file) {
+  if (TEXT.test(file)) return true;
+  try {
+    const fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(2);
+    const n = fs.readSync(fd, buf, 0, 2, 0);
+    fs.closeSync(fd);
+    return n === 2 && buf[0] === 0x23 && buf[1] === 0x21; // "#!"
+  } catch {
+    return false;
+  }
+}
+
 const PATTERNS = [
   { id: 'macos-home', re: /\/Users\/[A-Za-z0-9._-]+/g, msg: 'absolute macOS home path — use os.homedir() or ${CLAUDE_PLUGIN_DATA}' },
   { id: 'linux-home', re: /\/home\/[A-Za-z0-9._-]+/g, msg: 'absolute Linux home path — use os.homedir() or ${CLAUDE_PLUGIN_DATA}' },
@@ -43,7 +62,7 @@ const ALLOW_LINE = [
 const r = new Report('validate-no-personal-paths');
 
 for (const root of SCAN) {
-  for (const file of walk(root, (p) => TEXT.test(p) && !SKIP_FILE.test(p))) {
+  for (const file of walk(root, (p) => isText(p) && !SKIP_FILE.test(p))) {
     r.checked++;
     const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
