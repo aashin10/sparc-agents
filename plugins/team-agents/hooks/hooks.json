@@ -17,8 +17,6 @@
           }
         ]
       }
-<<<<<<< Updated upstream
-=======
     ],
     "PreToolUse": [
       {
@@ -40,7 +38,7 @@
     "PostToolUse": [
       {
         "id": "post:edit-accumulate",
-        "description": "Records touched files into the turn's changeset. Never runs tooling \u2014 the expensive work happens once, on Stop.",
+        "description": "Records touched files into the turn's changeset. Never runs tooling — the expensive work happens once, on Stop.",
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
@@ -93,7 +91,7 @@
     "InstructionsLoaded": [
       {
         "id": "instructions:ledger",
-        "description": "Records which instruction files loaded, how big they were, and what triggered them \u2014 the debugging tool for why a rule is not firing.",
+        "description": "Records which instruction files loaded, how big they were, and what triggered them — the debugging tool for why a rule is not firing.",
         "matcher": "*",
         "hooks": [
           {
@@ -106,7 +104,6 @@
           }
         ]
       }
->>>>>>> Stashed changes
     ]
   }
 }

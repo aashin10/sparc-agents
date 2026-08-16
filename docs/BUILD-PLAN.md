@@ -51,21 +51,21 @@ install.
 
 ### Tasks
 
-- [ ] `scripts/lib/hook-io.js` — stdin parse, `allow()`, `block(reason)`,
+- [x] `scripts/lib/hook-io.js` — stdin parse, `allow()`, `block(reason)`,
       `warn()`, `addContext()`
-- [ ] `scripts/lib/config.js` — profile resolution with the precedence chain
+- [x] `scripts/lib/config.js` — profile resolution with the precedence chain
       from ARCHITECTURE §11
-- [ ] `scripts/lib/classify.js` — path -> `{ domain, layer, project, isTest,
+- [x] `scripts/lib/classify.js` — path -> `{ domain, layer, project, isTest,
       isMigration, isController, isGenerated }`
-- [ ] `scripts/lib/changeset.js` — accumulate under `${CLAUDE_PLUGIN_DATA}`
-- [ ] `scripts/lib/dotnet.js` — solution/project graph; "which projects own
+- [x] `scripts/lib/changeset.js` — accumulate under `${CLAUDE_PLUGIN_DATA}`
+- [x] `scripts/lib/dotnet.js` — solution/project graph; "which projects own
       these files"; "which tests cover these projects"
-- [ ] `scripts/hooks/pre-config-protection.js`
-- [ ] `scripts/hooks/post-edit-accumulate.js`
-- [ ] `scripts/hooks/stop-quality-gate.js` — format, build, scoped test
-- [ ] `tests/fixtures/hook-events/` — one fixture JSON per hook event
-- [ ] `scripts/ci/smoke-hooks.js`
-- [ ] `policies/context-budget.json`, `manifests/install-profiles.json`
+- [x] `scripts/hooks/pre-config-protection.js`
+- [x] `scripts/hooks/post-edit-accumulate.js`
+- [x] `scripts/hooks/stop-quality-gate.js` — format, build, scoped test
+- [x] `tests/fixtures/hook-events/` — one fixture JSON per hook event
+- [x] `scripts/ci/smoke-hooks.js`
+- [x] `policies/context-budget.json`, `manifests/install-profiles.json`
 
 ### Acceptance
 

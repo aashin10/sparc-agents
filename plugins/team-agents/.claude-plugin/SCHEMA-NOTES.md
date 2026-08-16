@@ -86,3 +86,74 @@ Seeded from `docs/ARCHITECTURE.md` Appendix A.
 - Install runs with `--ignore-scripts` and a 60-second timeout. Prefer zero
   runtime dependencies: a dependency that fails to install becomes a silent hook
   failure on someone else's machine.
+
+---
+
+## Verified against Claude Code v2.1.233 (Phase 0 acceptance)
+
+Everything below was reproduced against a real CLI, not inferred from docs.
+Two of these contradict `docs/ARCHITECTURE.md` §5.1 as written.
+
+### `agents` rejects directory paths — it wants files
+
+`"agents": ["./agents/", "./domains/backend/agents/"]` fails with the maximally
+unhelpful `agents: Invalid input`, and the **whole plugin then fails to load** —
+no skills, no hooks, no entry in `claude plugin details`. Bisected: any directory
+path is rejected; `"./agents/probe.md"` validates. This differs from `skills`,
+which does take directories.
+
+Consequences:
+
+- The ARCHITECTURE §5.1 snippet showing `agents` with two directory paths is
+  **wrong for this CLI version**. Do not paste it back in.
+- Until Phase 4 ships real agent files, the field is omitted entirely and the
+  default `./agents/` scan applies.
+- When Phase 4 adds agents, either list each `.md` file explicitly, or re-test
+  whether directory support has landed. Do not assume.
+
+### `hooks` must reference only *additional* hook files
+
+`hooks/hooks.json` is auto-loaded by convention. Declaring
+`"hooks": "./hooks/hooks.json"` in the manifest loads it a second time and the
+runtime rejects it:
+
+```
+[ERROR] Duplicate hooks file detected: ./hooks/hooks.json resolves to an
+already-loaded file. The standard hooks/hooks.json is loaded automatically, so
+manifest.hooks should only reference additional hook files.
+```
+
+The plugin still loads, but is marked `hook-load-failed` and is not available for
+MCP. The field is therefore omitted.
+
+### Profile switching cannot be done by swapping hook files
+
+Follows from the above. A manifest field is static — there is no way to declare
+`hooks/hooks.json` for the standard profile and `hooks/strict.hooks.json` for the
+strict one, because the manifest cannot vary per profile and the standard file is
+always auto-loaded.
+
+**Profile switching is therefore a runtime concern**, implemented in each hook via
+`config.load().profile` and `config.gateEnabled(id)`. `stop:quality-gate` reads
+the profile to choose advisory (standard) versus blocking (strict) behaviour.
+
+Open item for Phase 5: `hooks/strict.hooks.json` currently duplicates the
+`session:banner` id from `hooks.json`. If it is ever declared in the manifest as
+an additional file, that hook fires twice. It should be reduced to the
+strict-only additive gates (migration guard, commit gate) before being wired up.
+
+### `--strict` fails on a missing `version`
+
+`claude plugin validate <path> --strict` reports `No version specified` as a
+**warning**, which `--strict` promotes to an error. This directly conflicts with
+locked decision §13.2 (omit `version` so the commit SHA is the version).
+
+Confirmed working as designed: `claude plugin list` shows
+`Version: 2d6bbec62a48` — the commit SHA. So the decision is sound and the
+warning is cosmetic. Either drop `--strict` from CI, or accept the warning and
+gate CI on the non-strict run plus the repo's own validators.
+
+### Marketplace `add` rejects a bare `.`
+
+`claude plugin marketplace add .` fails with "Invalid marketplace source format".
+`./.` and an absolute path both work.

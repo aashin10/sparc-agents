@@ -7,9 +7,6 @@ the internal phase — Claude Code resolves the version from the source's git co
 SHA, so teammates tracking `main` get updates on every push. Entries below are
 therefore keyed by phase, not by version number, until the first stable release.
 
-<<<<<<< Updated upstream
-## [Unreleased] — Phase 0: skeleton that loads
-=======
 ## [Unreleased] — Phase 2: instrumentation
 
 ### Added
@@ -65,7 +62,7 @@ therefore keyed by phase, not by version number, until the first stable release.
 - Fixtures for the `.editorconfig` and generated-file cases.
 
 ### Changed
-- `hooks/hooks.json` now registers all four hooks.
+- `hooks/hooks.json` registers the four Phase 1 hooks.
 - `SCHEMA-NOTES.md` records manifest behaviour verified against CLI v2.1.233,
   including two items that contradict ARCHITECTURE §5.1 as written.
 
@@ -78,7 +75,6 @@ therefore keyed by phase, not by version number, until the first stable release.
   not file-based. See SCHEMA-NOTES.
 
 ## Phase 0 — skeleton that loads
->>>>>>> Stashed changes
 
 ### Added
 - Marketplace manifest (`.claude-plugin/marketplace.json`) and plugin manifest
