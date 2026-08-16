@@ -4,16 +4,19 @@
   "description": "Marketplace repo for the team-agents Claude Code plugin. Holds the plugin's own CI, not any runtime dependency of it.",
   "license": "MIT",
   "type": "commonjs",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "ci": "npm run validate && npm run smoke",
-    "validate": "npm run validate:manifest && npm run validate:hooks && npm run validate:agents && npm run validate:skills && npm run validate:paths",
+    "validate": "npm run validate:manifest && npm run validate:hooks && npm run validate:agents && npm run validate:skills && npm run validate:paths && npm run validate:cli",
     "validate:manifest": "node scripts/ci/validate-manifest.js",
     "validate:hooks": "node scripts/ci/validate-hooks.js",
     "validate:agents": "node scripts/ci/validate-agents.js",
     "validate:skills": "node scripts/ci/validate-skills.js",
     "validate:paths": "node scripts/ci/validate-no-personal-paths.js",
     "smoke": "node scripts/ci/smoke-hooks.js",
-    "budget": "node scripts/ci/check-token-budget.js"
+    "budget": "node scripts/ci/check-token-budget.js",
+    "validate:cli": "node scripts/ci/validate-cli-strict.js"
   }
 }

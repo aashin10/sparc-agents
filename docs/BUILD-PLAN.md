@@ -87,16 +87,16 @@ before you add content that consumes both.
 
 ### Tasks
 
-- [ ] `scripts/lib/eventlog.js` + `schemas/event.schema.json` (v1)
-- [ ] `scripts/lib/transcript.js` — defensive `usage` block parser; records CLI
+- [x] `scripts/lib/eventlog.js` + `schemas/event.schema.json` (v1)
+- [x] `scripts/lib/transcript.js` — defensive `usage` block parser; records CLI
       version on every row
-- [ ] `scripts/hooks/session-end-rollup.js` — drains transcript into
+- [x] `scripts/hooks/session-end-rollup.js` — drains transcript into
       `${CLAUDE_PLUGIN_DATA}/telemetry/`
-- [ ] `bin/arc-usage` — see the output shape below
-- [ ] `scripts/hooks/instructions-ledger.js` on `InstructionsLoaded`
-- [ ] `bin/arc-context` — prints the always-on ledger against the budget
-- [ ] `scripts/ci/check-token-budget.js`
-- [ ] Emit events from the Phase 1 hooks through `eventlog.js`
+- [x] `bin/arc-usage` — see the output shape below
+- [x] `scripts/hooks/instructions-ledger.js` on `InstructionsLoaded`
+- [x] `bin/arc-context` — prints the always-on ledger against the budget
+- [x] `scripts/ci/check-token-budget.js`
+- [x] Emit events from the Phase 1 hooks through `eventlog.js`
 
 ### Target output for `arc-usage`
 

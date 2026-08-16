@@ -21,6 +21,10 @@ const BACKEND_EXT = new Set([
   '.resx', '.ruleset', '.globalconfig', '.editorconfig',
 ]);
 
+// Files whose contents can change what the compiler produces. `dotnet format`
+// only handles .cs, but the build step cares about all of these.
+const BUILD_AFFECTING = new Set(['.cs', '.csproj', '.razor', '.cshtml']);
+
 // Ordered: first match wins, so the more specific segment names come first.
 const LAYERS = [
   ['test', /^(tests?|specs?|testing)$/i],
@@ -124,8 +128,10 @@ function classify(filePath) {
     isMigration,
     isController: /Controller\.cs$/.test(base),
     isGenerated,
-    // Worth running tooling over: real C# the author actually wrote.
-    isSource: ext === '.cs' && !isGenerated,
+    // Worth running the build over. Not just .cs: editing a .csproj to add a
+    // PackageReference or retarget a framework breaks the build just as hard,
+    // and .razor/.cshtml are compiled too.
+    isSource: BUILD_AFFECTING.has(ext) && !isGenerated,
   };
 }
 

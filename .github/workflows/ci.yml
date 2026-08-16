@@ -38,10 +38,12 @@ jobs:
       - name: Smoke-test hooks against fixtures
         run: node scripts/ci/smoke-hooks.js
 
-      # `claude plugin validate --strict` and `check-token-budget.js` both need
-      # the Claude Code CLI. They are the two checks that catch schema drift and
-      # always-on context creep, so wire them up as soon as the CLI is available
-      # on the runner. check-token-budget.js exits 0 when the CLI is missing, so
-      # it is safe to run unconditionally in the meantime.
+      # These two need the Claude Code CLI and both exit 0 when it is missing,
+      # so they are safe to run unconditionally. Install the CLI on the runner to
+      # actually get their coverage: validate-cli-strict catches typo'd manifest
+      # keys, check-token-budget catches always-on context creep.
+      - name: Manifest schema (claude plugin validate --strict)
+        run: node scripts/ci/validate-cli-strict.js
+
       - name: Always-on token budget
         run: node scripts/ci/check-token-budget.js

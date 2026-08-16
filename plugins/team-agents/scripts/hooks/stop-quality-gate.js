@@ -45,12 +45,24 @@ function runStep(name, args, cwd, budgetLeft) {
   });
   const ms = Date.now() - started;
 
+  // A step that never produced a verdict is NOT a pass. Treating it as one is
+  // how a gate silently stops gating: every build times out and the turn ends
+  // green. Mark it incomplete so it surfaces as missing coverage instead.
   if (res.error && res.error.code === 'ETIMEDOUT') {
-    return { name, ok: true, skipped: true, ms, note: `timed out after ${ms} ms — narrow the scope` };
+    return { name, ok: true, incomplete: true, ms, note: `${name}: timed out after ${ms} ms` };
   }
-  if (res.error) return { name, ok: true, skipped: true, ms, note: res.error.message };
+  if (res.error) {
+    return { name, ok: true, incomplete: true, ms, note: `${name}: could not run (${res.error.message})` };
+  }
 
   const output = `${res.stdout || ''}${res.stderr || ''}`;
+
+  // `dotnet format` ships with the SDK, but a trimmed or very old SDK may not
+  // have it. That is missing coverage, not a code defect — do not blame the user.
+  if (res.status !== 0 && /is not a dotnet command|Could not execute because|command not found/i.test(output)) {
+    return { name, ok: true, incomplete: true, ms, note: `${name}: subcommand unavailable in this SDK` };
+  }
+
   return { name, ok: res.status === 0, ms, output };
 }
 
@@ -114,6 +126,7 @@ run((payload, io) => {
   }
 
   if (outOfBudget) dropped.push(`remaining steps skipped after the ${TOTAL_BUDGET_MS} ms budget`);
+  for (const r of results.filter((r) => r.incomplete)) dropped.push(r.note);
 
   const failed = results.filter((r) => !r.ok);
   const elapsed = Date.now() - started;
@@ -128,7 +141,7 @@ run((payload, io) => {
     meta: {
       profile: cfg.profile,
       projects: scoped.map((p) => path.basename(p)),
-      steps: results.map((r) => ({ name: r.name, ok: r.ok, ms: r.ms, skipped: !!r.skipped })),
+      steps: results.map((r) => ({ name: r.name, ok: r.ok, ms: r.ms, incomplete: !!r.incomplete })),
       dropped,
     },
   });

@@ -1,9 +1,171 @@
 #!/usr/bin/env node
 'use strict';
-// arc-usage — token and cost rollup from the local telemetry store.
-// Phase 2. See docs/BUILD-PLAN.md for the target output shape.
-process.stderr.write(
-  'arc-usage: not implemented yet (Phase 2 — instrumentation).\n' +
-  'Until then: /cost for session cost, /usage for plan headroom.\n'
-);
-process.exit(1);
+
+/**
+ * arc-usage — token and cost rollup from the local telemetry store.
+ *
+ * On the Bash tool PATH while the plugin is enabled, so Claude can run it and
+ * report its own spend when asked.
+ *
+ *   arc-usage                      last 7 days from the telemetry store
+ *   arc-usage --since 30d          any Nd / Nh window
+ *   arc-usage --transcript <path>  parse one transcript directly (no store needed)
+ *   arc-usage --session            the current project's newest transcript
+ *   arc-usage --json               machine-readable
+ *
+ * Every dollar figure is an ESTIMATE at list rates (policies/pricing.json).
+ * It is not an invoice: subscription plans do not bill per token at all.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = process.env.CLAUDE_PLUGIN_ROOT || path.resolve(__dirname, '..');
+const config = require(path.join(ROOT, 'scripts', 'lib', 'config.js'));
+const transcript = require(path.join(ROOT, 'scripts', 'lib', 'transcript.js'));
+
+const argv = process.argv.slice(2);
+const has = (f) => argv.includes(f);
+const val = (f, d) => { const i = argv.indexOf(f); return i !== -1 && argv[i + 1] ? argv[i + 1] : d; };
+
+if (has('--help') || has('-h')) {
+  console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(4, 18).join('\n').replace(/^ \* ?/gm, ''));
+  process.exit(0);
+}
+
+function parseSince(s) {
+  const m = /^(\d+)([dh])$/.exec(String(s || '7d'));
+  if (!m) return 7 * 864e5;
+  return Number(m[1]) * (m[2] === 'h' ? 36e5 : 864e5);
+}
+
+function loadPricing() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'policies', 'pricing.json'), 'utf8'));
+  } catch {
+    return { models: {} };
+  }
+}
+
+/** Read normalized rows from the telemetry store within the window. */
+function fromStore(sinceMs) {
+  const dir = path.join(config.dataDir(), 'telemetry');
+  const cutoff = Date.now() - sinceMs;
+  const rows = [];
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl')); } catch { return rows; }
+  for (const f of files) {
+    let text = '';
+    try { text = fs.readFileSync(path.join(dir, f), 'utf8'); } catch { continue; }
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const r = JSON.parse(line);
+        const t = r.ts ? Date.parse(r.ts) : NaN;
+        if (Number.isFinite(t) && t < cutoff) continue;
+        rows.push(r);
+      } catch { /* skip malformed */ }
+    }
+  }
+  // The store can hold the same request from an earlier partial rollup.
+  const seen = new Set();
+  return rows.filter((r) => {
+    if (!r.request_id) return true;
+    if (seen.has(r.request_id)) return false;
+    seen.add(r.request_id);
+    return true;
+  });
+}
+
+const fmtTok = (n) => {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)} M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} K`;
+  return String(n);
+};
+const fmtUsd = (n) => `$${n.toFixed(2)}`;
+const pct = (a, b) => (b > 0 ? `${((a / b) * 100).toFixed(1)}%` : '0.0%');
+
+// --- gather ---------------------------------------------------------------
+const pricing = loadPricing();
+let rows = [];
+let scope = '';
+
+if (has('--transcript')) {
+  const f = val('--transcript');
+  rows = transcript.parseFile(f).rows;
+  scope = `transcript ${path.basename(f)}`;
+} else if (has('--session')) {
+  const files = transcript.listTranscripts(transcript.projectKeyFor(process.cwd()));
+  if (!files.length) {
+    console.error('arc-usage: no transcripts found for this project.');
+    process.exit(1);
+  }
+  rows = transcript.parseFile(files[0]).rows;
+  scope = `session ${path.basename(files[0], '.jsonl').slice(0, 8)}`;
+} else {
+  const since = val('--since', '7d');
+  rows = fromStore(parseSince(since));
+  scope = `last ${since}`;
+}
+
+const s = transcript.summarize(rows, pricing);
+const total = transcript.totalTokens(s.total);
+
+if (has('--json')) {
+  console.log(JSON.stringify({ scope, tokens: total, cost_estimate_usd: s.cost, ...s }, null, 2));
+  process.exit(0);
+}
+
+if (!rows.length) {
+  console.log(`arc-usage — no data for ${scope}.`);
+  console.log('');
+  console.log('The telemetry store fills on SessionEnd. To measure right now:');
+  console.log('  arc-usage --session          the current project\'s newest transcript');
+  console.log('  arc-usage --transcript PATH  a specific transcript file');
+  process.exit(0);
+}
+
+// --- report ---------------------------------------------------------------
+console.log('');
+console.log(`arc-usage — ${scope}`);
+console.log('');
+console.log(`Total          ${fmtTok(total).padEnd(10)} tokens     est. ${fmtUsd(s.cost)}`);
+
+const lines = [
+  ['cacheRead', s.total.cache_read, ''],
+  ['cacheCreate', s.total.cache_write_1h + s.total.cache_write_5m, '<- the expensive line'],
+  ['input', s.total.input, ''],
+  ['output', s.total.output, ''],
+];
+for (const [label, v, note] of lines) {
+  if (!v) continue;
+  console.log(`  ${label.padEnd(12)} ${fmtTok(v).padStart(8)}  (${pct(v, total).padStart(5)})   ${note}`);
+}
+if (s.total.thinking) console.log(`  ${'(thinking)'.padEnd(12)} ${fmtTok(s.total.thinking).padStart(8)}   included in output`);
+
+console.log('');
+console.log(`By source        ${'tokens'.padStart(8)}   ${'%'.padStart(5)}    est.$`);
+for (const [src, acc] of Object.entries(s.bySource).sort((a, b) => transcript.totalTokens(b[1]) - transcript.totalTokens(a[1]))) {
+  const t = transcript.totalTokens(acc);
+  console.log(`  ${src.padEnd(14)} ${fmtTok(t).padStart(8)}  ${pct(t, total).padStart(6)}  ${fmtUsd(acc.cost || 0).padStart(8)}`);
+}
+
+console.log('');
+console.log(`By model         ${'tokens'.padStart(8)}   ${'%'.padStart(5)}    est.$`);
+for (const [model, acc] of Object.entries(s.byModel).sort((a, b) => transcript.totalTokens(b[1]) - transcript.totalTokens(a[1]))) {
+  const t = transcript.totalTokens(acc);
+  if (!t) continue;
+  console.log(`  ${model.padEnd(14)} ${fmtTok(t).padStart(8)}  ${pct(t, total).padStart(6)}  ${fmtUsd(acc.cost || 0).padStart(8)}`);
+}
+
+console.log('');
+console.log(`Requests: ${s.total.requests}   Sessions: ${s.sessions.length}   CLI: ${s.cliVersions.join(', ') || 'unknown'}`);
+
+if (s.unpricedModels.length) {
+  console.log('');
+  console.log(`warn  no rate card for: ${s.unpricedModels.join(', ')} — their tokens are counted, their cost is not.`);
+  console.log('      Add them to policies/pricing.json.');
+}
+console.log('');
+console.log('Cost is an ESTIMATE at list rates, not an invoice. Subscription plans do not bill per token.');
+console.log('');

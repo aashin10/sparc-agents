@@ -125,11 +125,20 @@ function graph(startDir) {
   return built;
 }
 
-/** Which projects own these files? Returns absolute .csproj paths, deduped. */
+/**
+ * Which projects own these files? Returns absolute .csproj paths, deduped.
+ *
+ * Memoized by directory: a turn that edits twenty files in one project would
+ * otherwise walk the same ancestor chain twenty times, and this runs inside the
+ * Stop budget.
+ */
 function projectsForFiles(files) {
+  const byDir = new Map();
   const out = new Set();
   for (const f of files || []) {
-    const p = projectFor(f);
+    const dir = path.dirname(path.resolve(f));
+    if (!byDir.has(dir)) byDir.set(dir, projectFor(f));
+    const p = byDir.get(dir);
     if (p) out.add(path.resolve(p));
   }
   return [...out];

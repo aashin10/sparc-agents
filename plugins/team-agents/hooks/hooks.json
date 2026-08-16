@@ -9,7 +9,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.js"
+            ],
             "timeout": 5,
             "statusMessage": "team-agents: session start"
           }
@@ -25,7 +27,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-config-protection.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-config-protection.js"
+            ],
             "timeout": 5
           }
         ]
@@ -40,7 +44,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-edit-accumulate.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-edit-accumulate.js"
+            ],
             "timeout": 5
           }
         ]
@@ -55,9 +61,46 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop-quality-gate.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop-quality-gate.js"
+            ],
             "timeout": 30,
             "statusMessage": "team-agents: quality gate"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "id": "telemetry:session-rollup",
+        "description": "Drains the session transcript into the plugin data directory so spend survives the session that produced it.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-end-rollup.js"
+            ],
+            "timeout": 20,
+            "statusMessage": "team-agents: telemetry rollup"
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "id": "instructions:ledger",
+        "description": "Records which instruction files loaded, how big they were, and what triggered them — the debugging tool for why a rule is not firing.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/instructions-ledger.js"
+            ],
+            "timeout": 5
           }
         ]
       }
