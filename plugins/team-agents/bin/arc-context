@@ -1,10 +1,205 @@
 #!/usr/bin/env node
 'use strict';
-// arc-context — prints the always-on context ledger against policies/context-budget.json.
-// Phase 2. See docs/BUILD-PLAN.md.
-process.stderr.write(
-  'arc-context: not implemented yet (Phase 2 — instrumentation).\n' +
-  'Until then: /context all in session, and `claude plugin details team-agents`\n' +
-  'for this plugin\'s always-on vs on-invoke token cost.\n'
-);
-process.exit(1);
+
+/**
+ * arc-context — what is in the context window before you type anything, and
+ * what it costs, measured against policies/context-budget.json.
+ *
+ *   arc-context              audit the current project
+ *   arc-context --path DIR   audit another project
+ *   arc-context --json       machine-readable
+ *
+ * Two things make always-on context hard to reason about, and this command
+ * exists for both (ARCHITECTURE §9.2):
+ *
+ *   1. Cost is invisible. Nothing tells you that a rule file grew by 2,000
+ *      tokens, and everyone pays it on every session forever.
+ *   2. Whether something is always-on is determined by HOW it was loaded, not
+ *      by how important it is. A rule with `paths:` frontmatter is nearly free
+ *      but vanishes at compaction; the same rule without it is permanent and
+ *      charged every session. The two look almost identical in a diff.
+ *
+ * Token counts here are ESTIMATES from file size. The authoritative number for
+ * the plugin itself comes from `claude plugin details team-agents`, which this
+ * command runs when the CLI is available.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { spawnSync } = require('child_process');
+
+const ROOT = process.env.CLAUDE_PLUGIN_ROOT || path.resolve(__dirname, '..');
+
+const argv = process.argv.slice(2);
+const has = (f) => argv.includes(f);
+const val = (f, d) => { const i = argv.indexOf(f); return i !== -1 && argv[i + 1] ? argv[i + 1] : d; };
+
+if (has('--help') || has('-h')) {
+  console.log('arc-context — always-on context ledger, measured against the budget.');
+  console.log('  arc-context [--path DIR] [--json]');
+  process.exit(0);
+}
+
+const projectDir = path.resolve(val('--path', process.env.CLAUDE_PROJECT_DIR || process.cwd()));
+
+// ~4 characters per token is a rough prose average. Deliberately not tiktoken:
+// that is OpenAI's tokenizer and mis-counts Claude tokens badly. Treat every
+// number here as an estimate for spotting growth, not for billing.
+const CHARS_PER_TOKEN = 4;
+const estTokens = (chars) => Math.round(chars / CHARS_PER_TOKEN);
+
+function readPolicy() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'policies', 'context-budget.json'), 'utf8'));
+  } catch {
+    return { ceiling_tokens: 2500, warn_at_tokens: 2000 };
+  }
+}
+
+function statFile(file) {
+  try {
+    const text = fs.readFileSync(file, 'utf8');
+    return { text, bytes: Buffer.byteLength(text), lines: text.split('\n').length };
+  } catch {
+    return null;
+  }
+}
+
+/** Does this rule file carry `paths:` frontmatter? That decides everything. */
+function hasPathsFrontmatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  return !!m && /^\s*paths\s*:/m.test(m[1]);
+}
+
+function walk(dir, filter) {
+  const out = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...walk(full, filter));
+    else if (!filter || filter(full)) out.push(full);
+  }
+  return out;
+}
+
+const sources = [];
+const add = (kind, file, tokens, note, alwaysOn) =>
+  sources.push({ kind, file, tokens, note, alwaysOn });
+
+// --- CLAUDE.md, project and user ------------------------------------------
+for (const [label, file] of [
+  ['CLAUDE.md (project)', path.join(projectDir, 'CLAUDE.md')],
+  ['CLAUDE.md (user)', path.join(os.homedir(), '.claude', 'CLAUDE.md')],
+]) {
+  const st = statFile(file);
+  if (st) add(label, file, estTokens(st.bytes), `${st.lines} lines`, true);
+}
+
+// --- auto memory: only the first 200 lines / 25 KB is ever loaded ----------
+// The per-project directory key is the full path with separators and dots
+// mangled to dashes — not the basename.
+const projectKey = projectDir.replace(/[/\\.]/g, '-');
+const memFile = path.join(os.homedir(), '.claude', 'projects', projectKey, 'memory', 'MEMORY.md');
+const mem = statFile(memFile);
+if (mem) {
+  const loadedText = mem.text.split('\n').slice(0, 200).join('\n').slice(0, 25 * 1024);
+  const loadedTokens = estTokens(Buffer.byteLength(loadedText));
+  const truncated = mem.lines > 200 || mem.bytes > 25 * 1024;
+  add('MEMORY.md', memFile, loadedTokens,
+    truncated ? `${mem.lines} lines on disk, only first 200 / 25 KB loaded` : `${mem.lines} lines`, true);
+}
+
+// --- rules: the paths: split is the whole point ---------------------------
+for (const file of walk(path.join(projectDir, '.claude', 'rules'), (f) => f.endsWith('.md'))) {
+  const st = statFile(file);
+  if (!st) continue;
+  const scoped = hasPathsFrontmatter(st.text);
+  add(scoped ? 'rule (paths-scoped)' : 'rule (unscoped)', file, estTokens(st.bytes),
+    scoped ? 'charged only when a matching file is read; lost at compaction' : 'charged every session, survives compaction',
+    !scoped);
+}
+
+// --- the plugin's own always-on cost, from the CLI when available ----------
+let pluginTokens = null;
+let pluginNote = 'run `claude plugin details team-agents` for the authoritative number';
+const res = spawnSync('claude', ['plugin', 'details', 'team-agents'], { encoding: 'utf8', timeout: 60000 });
+if (!res.error && res.status === 0) {
+  const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
+  for (const line of (res.stdout || '').replace(ANSI, '').split('\n')) {
+    if (!/always[- ]?on/i.test(line)) continue;
+    const m = /([\d][\d,._]*)\s*(k)?/i.exec(line.replace(/always[- ]?on/i, ''));
+    if (!m) continue;
+    let v = Number(m[1].replace(/[,_]/g, ''));
+    if (m[2]) v *= 1000;
+    if (Number.isFinite(v)) { pluginTokens = v; pluginNote = 'measured by the Claude Code CLI'; break; }
+  }
+}
+if (pluginTokens !== null) add('team-agents plugin', '(skills + agents frontmatter)', pluginTokens, pluginNote, true);
+
+// --- report ---------------------------------------------------------------
+const policy = readPolicy();
+const ceiling = policy.ceiling_tokens ?? 2500;
+const warnAt = policy.warn_at_tokens ?? Math.floor(ceiling * 0.8);
+
+const alwaysOn = sources.filter((s) => s.alwaysOn);
+const scoped = sources.filter((s) => !s.alwaysOn);
+const alwaysOnTotal = alwaysOn.reduce((a, s) => a + s.tokens, 0);
+
+if (has('--json')) {
+  console.log(JSON.stringify({ projectDir, ceiling, warnAt, alwaysOnTotal, sources }, null, 2));
+  process.exit(0);
+}
+
+console.log('');
+console.log(`arc-context — ${projectDir}`);
+console.log('');
+
+if (!sources.length) {
+  console.log('No instruction sources found. Nothing is loaded before your first prompt.');
+  console.log('');
+  process.exit(0);
+}
+
+console.log('ALWAYS-ON  (paid on every session, re-injected after compaction)');
+console.log('');
+for (const s of alwaysOn.sort((a, b) => b.tokens - a.tokens)) {
+  const rel = s.file.startsWith('(') ? s.file : path.relative(projectDir, s.file) || s.file;
+  console.log(`  ${String(s.tokens).padStart(7)} tok  ${s.kind}`);
+  console.log(`  ${''.padStart(7)}       ${rel}${s.note ? `  — ${s.note}` : ''}`);
+}
+console.log('');
+console.log(`  ${String(alwaysOnTotal).padStart(7)} tok  TOTAL`);
+
+if (scoped.length) {
+  const scopedTotal = scoped.reduce((a, s) => a + s.tokens, 0);
+  console.log('');
+  console.log('CHARGED ON MATCH  (cheap, but lost at compaction until re-read)');
+  console.log('');
+  for (const s of scoped.sort((a, b) => b.tokens - a.tokens)) {
+    console.log(`  ${String(s.tokens).padStart(7)} tok  ${path.relative(projectDir, s.file)}`);
+  }
+  console.log('');
+  console.log(`  ${String(scopedTotal).padStart(7)} tok  TOTAL (not counted against the ceiling)`);
+}
+
+console.log('');
+const pctOf = ((alwaysOnTotal / ceiling) * 100).toFixed(0);
+if (alwaysOnTotal > ceiling) {
+  console.log(`OVER BUDGET — ${alwaysOnTotal} tokens against a ${ceiling} ceiling (${pctOf}%).`);
+  console.log('Shorten a description or set disable-model-invocation: true. Do not raise the ceiling.');
+} else if (alwaysOnTotal > warnAt) {
+  console.log(`Near budget — ${alwaysOnTotal} tokens, ${pctOf}% of the ${ceiling} ceiling.`);
+} else {
+  console.log(`Within budget — ${alwaysOnTotal} tokens, ${pctOf}% of the ${ceiling} ceiling.`);
+}
+
+if (pluginTokens === null) {
+  console.log('');
+  console.log('note  the plugin\'s own always-on cost is not included — the Claude Code CLI');
+  console.log('      was unavailable. Run `claude plugin details team-agents` to get it.');
+}
+console.log('');
+console.log('File-derived counts are ESTIMATES (~4 chars/token). Use them to spot growth, not to bill.');
+console.log('');

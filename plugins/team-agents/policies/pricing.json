@@ -1,0 +1,61 @@
+{
+  "v": 1,
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "source": "Anthropic first-party API list prices, captured 2026-08-15.",
+  "disclaimer": "These are list rates for ESTIMATES ONLY. They are not your invoice: subscription plans (Max/Pro) do not bill per token at all, and negotiated or partner rates (Bedrock, Vertex) differ. arc-usage labels every dollar figure as an estimate for this reason. Re-check against https://platform.claude.com/docs/en/pricing when a model ships or a promo ends.",
+  "multipliers": {
+    "cache_read": 0.1,
+    "cache_write_5m": 1.25,
+    "cache_write_1h": 2.0,
+    "note": "Cache reads cost ~0.1x base input. Writes cost 1.25x at the 5-minute TTL and 2x at the 1-hour TTL. Break-even is 2 requests on a 5m entry and 3 on a 1h entry — cache CREATION is the expensive line, which is why arc-usage calls it out separately."
+  },
+  "models": {
+    "claude-opus-5": {
+      "display": "Opus 5",
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.0
+    },
+    "claude-sonnet-5": {
+      "display": "Sonnet 5",
+      "input": 2.0,
+      "output": 10.0,
+      "cache_read": 0.2,
+      "cache_write_5m": 2.5,
+      "cache_write_1h": 4.0,
+      "promo": {
+        "note": "Introductory pricing, in effect through 2026-08-31. Standard rates are 3.00 input / 15.00 output; update this entry when the promo ends.",
+        "ends": "2026-08-31",
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.3,
+          "cache_write_5m": 3.75,
+          "cache_write_1h": 6.0
+        }
+      }
+    },
+    "claude-haiku-4-5": {
+      "display": "Haiku 4.5",
+      "input": 1.0,
+      "output": 5.0,
+      "cache_read": 0.1,
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2.0
+    },
+    "claude-opus-4-8": {
+      "display": "Opus 4.8",
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.0
+    }
+  },
+  "unpriced": {
+    "note": "Models absent from this table (including the synthetic entries Claude Code writes for local, non-API turns) are counted in token totals but contribute 0 to cost, and arc-usage names them so a silent gap is visible rather than assumed to be free."
+  }
+}

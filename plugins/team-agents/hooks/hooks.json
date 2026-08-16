@@ -9,12 +9,104 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.js"
+            ],
             "timeout": 5,
             "statusMessage": "team-agents: session start"
           }
         ]
       }
+<<<<<<< Updated upstream
+=======
+    ],
+    "PreToolUse": [
+      {
+        "id": "pre:config-protection",
+        "description": "Blocks edits to .editorconfig, Directory.Build.props, rulesets, and .globalconfig so the agent fixes code instead of weakening the rules.",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-config-protection.js"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "id": "post:edit-accumulate",
+        "description": "Records touched files into the turn's changeset. Never runs tooling \u2014 the expensive work happens once, on Stop.",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-edit-accumulate.js"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "id": "stop:quality-gate",
+        "description": "Runs format and build against only the projects touched this turn; adds tests under the strict profile.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop-quality-gate.js"
+            ],
+            "timeout": 30,
+            "statusMessage": "team-agents: quality gate"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "id": "telemetry:session-rollup",
+        "description": "Drains the session transcript into the plugin data directory so spend survives the session that produced it.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-end-rollup.js"
+            ],
+            "timeout": 20,
+            "statusMessage": "team-agents: telemetry rollup"
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "id": "instructions:ledger",
+        "description": "Records which instruction files loaded, how big they were, and what triggered them \u2014 the debugging tool for why a rule is not firing.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/instructions-ledger.js"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+>>>>>>> Stashed changes
     ]
   }
 }

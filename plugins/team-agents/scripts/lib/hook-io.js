@@ -63,8 +63,16 @@ function parse(raw) {
   let data = {};
   try {
     data = raw ? JSON.parse(raw) : {};
-  } catch {
-    data = {}; // malformed stdin must not throw — see the fail-open note in run()
+  } catch (err) {
+    // Malformed stdin must not throw — see the fail-open note in run(). But it
+    // must not be silent either: a truncated payload makes every hook decide on
+    // an empty object and quietly allow everything. On exit 0 this line lands in
+    // the debug log, which is where you go when a gate "stopped working".
+    process.stderr.write(
+      `team-agents: could not parse hook stdin (${raw.length} bytes, ${err.message}). ` +
+      'Treating the payload as empty — hooks will allow by default.\n'
+    );
+    data = {};
   }
   const toolInput = data.tool_input || {};
   return {
